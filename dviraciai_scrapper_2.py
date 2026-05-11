@@ -32,10 +32,13 @@ url = st.text_area(
     height=120
 )
 
-# file = st.text_input(
-#     "Excel file",
-#     value="skelbiu_bikes.xlsx"
-# )
+# ---------------------------------------------------
+# ADD NEW BUTTON
+# ---------------------------------------------------
+
+add_new_button = st.button(
+    "Add New Ads"
+)
 
 
 # folder with excel files
@@ -78,11 +81,11 @@ path = Path(file)
 
 col1, col2 = st.columns(2)
 
-add_new_button = col1.button(
-    "Add New Ads"
-)
+# add_new_button = col1.button(
+#     "Add New Ads"
+# )
 
-rerun_existing_button = col2.button(
+rerun_existing_button = st.button(
     "Rerun Existing Ads"
 )
 
