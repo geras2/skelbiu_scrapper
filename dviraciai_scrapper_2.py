@@ -126,7 +126,7 @@ if add_new_button:
 
         total = len(new_df)
 
-        for i, link in enumerate(latest_ads["link"]):
+        for i, link in enumerate(new_df["link"]):
 
             result = extract_ad_info(link)
 
