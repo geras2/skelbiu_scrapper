@@ -24,43 +24,34 @@ st.set_page_config(
 st.title("Skelbiu Tracker")
 
 # ---------------------------------------------------
-# INPUTS
+# FILE SELECTION
 # ---------------------------------------------------
 
-url = st.text_area(
-    "Skelbiu URL",
-    height=120
-)
-
-# ---------------------------------------------------
-# ADD NEW BUTTON
-# ---------------------------------------------------
-
-add_new_button = st.button(
-    "Add New Ads"
-)
-
-
-# folder with excel files
 data_folder = Path("data")
 
-# create folder if missing
 data_folder.mkdir(exist_ok=True)
 
-# scan existing xlsx files
 excel_files = sorted(
-    [f.name for f in data_folder.glob("*.xlsx")]
+    data_folder.glob("*.xlsx"),
+    key=lambda x: x.stat().st_mtime,
+    reverse=True
 )
+options = [f.name for f in excel_files] + ["NEW FILE"]
 
-# default option
-options = ["NEW FILE"] + excel_files
+default_index = 0
 
 selected_file = st.selectbox(
     "Select Excel file",
-    options
+    options,
+    index=default_index
 )
 
-# create new file
+# ---------------------------------------------------
+# RESOLVE FILE
+# ---------------------------------------------------
+
+loaded_url = ""
+
 if selected_file == "NEW FILE":
 
     new_file_name = st.text_input(
@@ -74,16 +65,35 @@ else:
 
     file = data_folder / selected_file
 
-path = Path(file)
+    # load URL from workbook
+    try:
+
+        url_df = pd.read_excel(
+            file,
+            sheet_name="url"
+        )
+
+        loaded_url = url_df.loc[0, "url"]
+
+    except Exception:
+
+        loaded_url = ""
+
+# ---------------------------------------------------
+# URL INPUT
+# ---------------------------------------------------
+
+url = st.text_area(
+    "Skelbiu URL",
+    value=loaded_url,
+    height=120
+)
 # ---------------------------------------------------
 # BUTTONS
 # ---------------------------------------------------
-
-col1, col2 = st.columns(2)
-
-# add_new_button = col1.button(
-#     "Add New Ads"
-# )
+add_new_button = st.button(
+    "Add New Ads"
+)
 
 rerun_existing_button = st.button(
     "Rerun Existing Ads"
@@ -100,98 +110,207 @@ def now_lt():
         .tz_localize(None)
         .floor("s")
     )
+def write_excel(combined_df, url, file):
 
+    with pd.ExcelWriter(
+        file,
+        engine="openpyxl"
+    ) as writer:
 
+        # Main ads data
+        combined_df.to_excel(
+            writer,
+            sheet_name="data",
+            index=False
+        )
+
+        # Source URL
+        pd.DataFrame({
+            "url": [url]
+        }).to_excel(
+            writer,
+            sheet_name="url",
+            index=False
+        )
+        
 # ---------------------------------------------------
 # ADD NEW ADS
 # ---------------------------------------------------
-
 if add_new_button:
 
     try:
 
-        st.write("Extracting ads from search page...")
+        st.write(
+            "Extracting ads from search page..."
+        )
 
-        new_df = extract_ads(url)
+        # --------------------------------------
+        # Extract search results
+        # --------------------------------------
 
-        st.write(f"Found {len(new_df)} ads")
+        scraped_df = extract_ads(url)
 
-        # ------------------------------------------
-        # ENRICH NEW ADS
-        # ------------------------------------------
+        st.write(
+            f"Found {len(scraped_df)} ads"
+        )
 
-        details = []
+        # --------------------------------------
+        # Existing file
+        # --------------------------------------
 
-        progress = st.progress(0)
+        if file.exists():
 
-        total = len(new_df)
-
-        for i, link in enumerate(new_df["link"]):
-
-            result = extract_ad_info(link)
-
-            details.append(result)
-
-            progress.progress((i + 1) / total)
-
-            time.sleep(
-                random.uniform(2, 5)
+            old_df = pd.read_excel(
+                file,
+                sheet_name="data"
             )
 
-        details_df = pd.DataFrame(details)
+            existing_links = (
 
-        new_df[
-            ["ad_id", "views", "bookmarks"]
-        ] = details_df
-
-        new_df["scraped_at"] = now_lt()
-
-        path = Path(file)
-
-        # ------------------------------------------
-        # APPEND ONLY NEW ADS
-        # ------------------------------------------
-
-        if path.exists():
-
-            old_df = pd.read_excel(file)
-
-            existing_ids = (
-                old_df["ad_id"]
+                old_df["link"]
                 .astype(str)
                 .unique()
+
             )
 
-            new_df = new_df[
-                ~new_df["ad_id"]
+            # Keep only unseen ads
+            new_df = scraped_df[
+                ~scraped_df["link"]
                 .astype(str)
-                .isin(existing_ids)
-            ]
+                .isin(existing_links)
+            ].copy()
 
-            combined_df = pd.concat(
-                [old_df, new_df],
-                ignore_index=True
+            st.write(
+                f"New ads: {len(new_df)}"
             )
+
+            # ----------------------------------
+            # Enrich ONLY new ads
+            # ----------------------------------
+
+            if len(new_df) > 0:
+
+                details = []
+
+                progress = st.progress(0)
+
+                total = len(new_df)
+
+                for i, link in enumerate(
+                    new_df["link"]
+                ):
+
+                    result = extract_ad_info(
+                        link
+                    )
+
+                    details.append(result)
+
+                    progress.progress(
+                        (i + 1) / total
+                    )
+
+                    time.sleep(
+                        random.uniform(1, 2)
+                    )
+
+                details_df = pd.DataFrame(
+                    details
+                )
+
+                new_df[
+                    [
+                        "ad_id",
+                        "views",
+                        "bookmarks"
+                    ]
+                ] = details_df
+
+                new_df["scraped_at"] = (
+                    now_lt()
+                )
+
+                combined_df = pd.concat(
+
+                    [old_df, new_df],
+                    ignore_index=True
+
+                )
+
+            else:
+
+                combined_df = old_df
+
+        # --------------------------------------
+        # New file
+        # --------------------------------------
 
         else:
 
+            new_df = scraped_df.copy()
+
+            details = []
+
+            progress = st.progress(0)
+
+            total = len(new_df)
+
+            for i, link in enumerate(
+                new_df["link"]
+            ):
+
+                result = extract_ad_info(
+                    link
+                )
+
+                details.append(result)
+
+                progress.progress(
+                    (i + 1) / total
+                )
+
+                time.sleep(
+                    random.uniform(1, 2)
+                )
+
+            details_df = pd.DataFrame(
+                details
+            )
+
+            new_df[
+                [
+                    "ad_id",
+                    "views",
+                    "bookmarks"
+                ]
+            ] = details_df
+
+            new_df["scraped_at"] = (
+                now_lt()
+            )
+
             combined_df = new_df
 
-        combined_df.to_excel(
-            file,
-            index=False
+        # --------------------------------------
+        # Save
+        # --------------------------------------
+
+        write_excel(
+            combined_df,
+            url,
+            file
         )
 
         st.success(
-            f"Added {len(new_df)} new ads"
+            f"Dataset rows: "
+            f"{len(combined_df)}"
         )
 
-        st.dataframe(new_df)
+        st.dataframe(combined_df)
 
     except Exception as e:
 
         st.error(str(e))
-
 
 # ---------------------------------------------------
 # RERUN EXISTING ADS
@@ -247,11 +366,6 @@ if rerun_existing_button:
 
             progress.progress((i + 1) / total)
 
-        # details_df = pd.DataFrame(details)
-
-        # latest_ads[
-        #     ["ad_id", "views", "bookmarks"]
-        # ] = details_df
         details_df = pd.DataFrame(details).reset_index(drop=True)
 
         latest_ads = latest_ads.reset_index(drop=True)
@@ -267,15 +381,13 @@ if rerun_existing_button:
         # ------------------------------------------
 
         combined_df = pd.concat(
-            [old_df, latest_ads],
+            [old_df, latest_ads],   
             ignore_index=True
         )
 
-        combined_df.to_excel(
-            file,
-            index=False
-        )
-
+        write_excel(combined_df, url,file)
+        # write_data(combined_df, file)
+        # write_url(url,file)
         st.success(
             f"Updated {len(latest_ads)} ads"
         )
