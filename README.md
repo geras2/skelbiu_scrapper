@@ -19,13 +19,9 @@ The app:
 # Features
 
 - Streamlit web UI
-- Add new ads from search URLs
-- Rerun existing ads
-- Historical tracking
+- Add and rerun ads from search URLs
 - Excel export
-- Multi-file dataset support
-- Anti-bot handling via cloudscraper
-
+- 
 ---
 
 # Installation
