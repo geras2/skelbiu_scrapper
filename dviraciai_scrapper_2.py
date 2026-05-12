@@ -363,7 +363,9 @@ if rerun_existing_button:
             details.append(
                 extract_ad_info(link)
             )
-
+            time.sleep(
+                    random.uniform(1, 2)
+                )
             progress.progress((i + 1) / total)
 
         details_df = pd.DataFrame(details).reset_index(drop=True)
