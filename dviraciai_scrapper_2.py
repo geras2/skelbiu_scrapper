@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 import random
 from pathlib import Path
-
+from update_from_git import update_app
 from scrape_views import (
     extract_ads,
     extract_ad_info
@@ -99,6 +99,9 @@ rerun_existing_button = st.button(
     "Rerun Existing Ads"
 )
 
+update_button = st.button(
+    "Update App"
+)
 # ---------------------------------------------------
 # HELPERS
 # ---------------------------------------------------
@@ -132,7 +135,15 @@ def write_excel(combined_df, url, file):
             sheet_name="url",
             index=False
         )
-        
+if update_button:
+
+    try:
+
+        update_app()
+
+    except Exception as e:
+
+        st.error(str(e))
 # ---------------------------------------------------
 # ADD NEW ADS
 # ---------------------------------------------------
