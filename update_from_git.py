@@ -55,7 +55,8 @@ def update_app():
         "scrape_views.py",
         "requirements.txt",
         "install.bat",
-        "start.bat"
+        "start.bat",
+        "update_from_git.py"
 
     ]
 
