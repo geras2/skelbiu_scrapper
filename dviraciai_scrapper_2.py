@@ -94,14 +94,14 @@ url = st.text_area(
 add_new_button = st.button(
     "Add New Ads"
 )
-
+update_button = st.button(
+    "Update App"
+)
 rerun_existing_button = st.button(
     "Rerun Existing Ads"
 )
 
-update_button = st.button(
-    "Update App"
-)
+
 # ---------------------------------------------------
 # HELPERS
 # ---------------------------------------------------
