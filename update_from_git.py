@@ -51,7 +51,6 @@ def update_app():
 
     files_to_copy = [
 
-        "app.py",
         "scrape_views.py",
         "requirements.txt",
         "install.bat",
