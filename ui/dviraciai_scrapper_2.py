@@ -11,43 +11,9 @@ from core.scrape_views import (
     extract_ads,
     extract_ad_info
 )
+from core.helpers import now_lt, write_excel
 
 
-
-# ---------------------------------------------------
-# HELPERS
-# ---------------------------------------------------
-
-def now_lt():
-
-    return (
-        pd.Timestamp.now(tz="Europe/Vilnius")
-        .tz_localize(None)
-        .floor("s")
-    )
-def write_excel(combined_df, url, file):
-
-    with pd.ExcelWriter(
-        file,
-        engine="openpyxl"
-    ) as writer:
-
-        # Main ads data
-        combined_df.to_excel(
-            writer,
-            sheet_name="data",
-            index=False
-        )
-
-        # Source URL
-        pd.DataFrame({
-            "url": [url]
-        }).to_excel(
-            writer,
-            sheet_name="url",
-            index=False
-        )
-        
 def main():
     # ---------------------------------------------------
     # CONFIG
@@ -125,25 +91,11 @@ def main():
         value=loaded_url,
         height=120
     )
-    # ---------------------------------------------------
-    # BUTTONS
-    # ---------------------------------------------------
-    add_new_button = st.button(
-        "Add New Ads"
-    )
-    rerun_existing_button = st.button(
-        "Rerun Existing Ads"
-    )
-
-    update_button = st.button(
-        "Update App"
-    )
 
     # ---------------------------------------------------
-    # update app from git
+    # update button function
     # ---------------------------------------------------
-
-    if update_button:
+    def run_update_app():
 
         try:
 
@@ -152,12 +104,11 @@ def main():
         except Exception as e:
 
             st.error(str(e))
-
-
     # ---------------------------------------------------
     # ADD NEW ADS
     # ---------------------------------------------------
-    if add_new_button:
+    # if add_new_button:
+    def run_add_new_ads():
 
         try:
 
@@ -337,7 +288,8 @@ def main():
     # RERUN EXISTING ADS
     # ---------------------------------------------------
 
-    if rerun_existing_button:
+    # if rerun_existing_button:
+    def run_rerun_ads():
 
         try:
 
@@ -420,3 +372,18 @@ def main():
         except Exception as e:
 
             st.error(str(e))
+    # ---------------------------------------------------
+    # update app from git
+    # ---------------------------------------------------
+    ACTIONS = {
+        "Add New Ads": run_add_new_ads,
+        "Rerun Existing Ads": run_rerun_ads,
+        "Update App": run_update_app,
+    }
+    for label, func in ACTIONS.items():
+
+        if st.button(label):
+            func()
+        
+
+
