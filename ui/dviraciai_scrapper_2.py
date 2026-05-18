@@ -12,7 +12,7 @@ from core.scrape_views import (
     extract_ad_info
 )
 from core.helpers import now_lt, write_excel
-
+from core.rerun_ads import run_rerun_ads
 
 def main():
     # ---------------------------------------------------
@@ -284,94 +284,94 @@ def main():
 
             st.error(str(e))
 
-    # ---------------------------------------------------
-    # RERUN EXISTING ADS
-    # ---------------------------------------------------
+    # # ---------------------------------------------------
+    # # RERUN EXISTING ADS
+    # # ---------------------------------------------------
 
-    # if rerun_existing_button:
-    def run_rerun_ads():
+    # # if rerun_existing_button:
+    # def run_rerun_ads():
 
-        try:
+    #     try:
 
-            path = Path(file)
+    #         path = Path(file)
 
-            if not path.exists():
+    #         if not path.exists():
 
-                st.error(
-                    "Excel file does not exist yet"
-                )
+    #             st.error(
+    #                 "Excel file does not exist yet"
+    #             )
 
-                st.stop()
+    #             st.stop()
 
-            old_df = pd.read_excel(file)
+    #         old_df = pd.read_excel(file)
 
-            # ------------------------------------------
-            # LATEST UNIQUE ADS
-            # ------------------------------------------
+    #         # ------------------------------------------
+    #         # LATEST UNIQUE ADS
+    #         # ------------------------------------------
 
-            latest_ads = (
-                old_df
-                .sort_values("scraped_at")
-                .groupby("ad_id")
-                .tail(1)
-                .copy()
-            )
+    #         latest_ads = (
+    #             old_df
+    #             .sort_values("scraped_at")
+    #             .groupby("ad_id")
+    #             .tail(1)
+    #             .copy()
+    #         )
 
-            st.write(
-                f"Rerunning {len(latest_ads)} ads..."
-            )
+    #         st.write(
+    #             f"Rerunning {len(latest_ads)} ads..."
+    #         )
 
-            # ------------------------------------------
-            # UPDATE METRICS
-            # ------------------------------------------
+    #         # ------------------------------------------
+    #         # UPDATE METRICS
+    #         # ------------------------------------------
 
-            details = []
+    #         details = []
 
-            progress = st.progress(0)
+    #         progress = st.progress(0)
 
-            total = len(latest_ads)
+    #         total = len(latest_ads)
 
-            for i, link in enumerate(latest_ads["link"]):
+    #         for i, link in enumerate(latest_ads["link"]):
 
-                details.append(
-                    extract_ad_info(link)
-                )
-                time.sleep(
-                        random.uniform(1, 2)
-                    )
-                progress.progress((i + 1) / total)
+    #             details.append(
+    #                 extract_ad_info(link)
+    #             )
+    #             time.sleep(
+    #                     random.uniform(1, 2)
+    #                 )
+    #             progress.progress((i + 1) / total)
 
-            details_df = pd.DataFrame(details).reset_index(drop=True)
+    #         details_df = pd.DataFrame(details).reset_index(drop=True)
 
-            latest_ads = latest_ads.reset_index(drop=True)
+    #         latest_ads = latest_ads.reset_index(drop=True)
 
-            latest_ads["ad_id"] = details_df["ad_id"]
-            latest_ads["views"] = details_df["views"]
-            latest_ads["bookmarks"] = details_df["bookmarks"]
+    #         latest_ads["ad_id"] = details_df["ad_id"]
+    #         latest_ads["views"] = details_df["views"]
+    #         latest_ads["bookmarks"] = details_df["bookmarks"]
             
-            latest_ads["scraped_at"] = now_lt()
+    #         latest_ads["scraped_at"] = now_lt()
 
-            # ------------------------------------------
-            # APPEND SNAPSHOT
-            # ------------------------------------------
+    #         # ------------------------------------------
+    #         # APPEND SNAPSHOT
+    #         # ------------------------------------------
 
-            combined_df = pd.concat(
-                [old_df, latest_ads],   
-                ignore_index=True
-            )
+    #         combined_df = pd.concat(
+    #             [old_df, latest_ads],   
+    #             ignore_index=True
+    #         )
 
-            write_excel(combined_df, url,file)
-            # write_data(combined_df, file)
-            # write_url(url,file)
-            st.success(
-                f"Updated {len(latest_ads)} ads"
-            )
+    #         write_excel(combined_df, url,file)
+    #         # write_data(combined_df, file)
+    #         # write_url(url,file)
+    #         st.success(
+    #             f"Updated {len(latest_ads)} ads"
+    #         )
 
-            st.dataframe(latest_ads)
+    #         st.dataframe(latest_ads)
 
-        except Exception as e:
+    #     except Exception as e:
 
-            st.error(str(e))
+    #         st.error(str(e))
     # ---------------------------------------------------
     # update app from git
     # ---------------------------------------------------
@@ -383,7 +383,8 @@ def main():
     for label, func in ACTIONS.items():
 
         if st.button(label):
-            func()
+            # func()
+            func(file=file, url=url)
         
 
 
