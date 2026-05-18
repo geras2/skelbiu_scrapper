@@ -1,5 +1,5 @@
 @echo off
 
-python -m streamlit run dviraciai_scrapper_2.py
+python -m streamlit run app.py
 
 pause
