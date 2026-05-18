@@ -5,8 +5,24 @@ import requests
 import streamlit as st
 from pathlib import Path
 
-def update_app():
+EXCLUDE = {
 
+    ".git",
+    "__pycache__",
+    "data",
+    "venv",
+    ".venv"
+
+}
+def update_app():
+    if Path(".git").exists():
+
+        st.warning(
+            "Git repo detected. "
+            "Auto-update skipped."
+        )
+
+        return
     repo_zip = (
         "https://github.com/geras2/"
         "skelbiu_scrapper/archive/"
@@ -49,23 +65,46 @@ def update_app():
     # Files to update
     # ----------------------------------------
 
-    files_to_copy = [
+    # files_to_copy = [
 
-        "scrape_views.py",
-        "requirements.txt",
-        "install.bat",
-        "start.bat",
-        "update_from_git.py"
+    #     "scrape_views.py",
+    #     "requirements.txt",
+    #     "install.bat",
+    #     "start.bat",
+    #     "update_from_git.py"
 
-    ]
+    # ]
 
-    for filename in files_to_copy:
+    # for filename in files_to_copy:
 
-        src = source_dir / filename
+    #     src = source_dir / filename
 
-        dst = Path(filename)
+    #     dst = Path(filename)
 
-        if src.exists():
+    #     if src.exists():
+
+    #         shutil.copy2(src, dst)
+    for src in source_dir.rglob("*"):
+
+        relative = src.relative_to(source_dir)
+
+        # Skip excluded folders
+        if any(
+            part in EXCLUDE
+            for part in relative.parts
+        ):
+            continue
+
+        dst = Path(relative)
+
+        if src.is_dir():
+
+            dst.mkdir(
+                parents=True,
+                exist_ok=True
+            )
+
+        else:
 
             shutil.copy2(src, dst)
 
