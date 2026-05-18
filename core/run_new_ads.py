@@ -10,11 +10,25 @@ import pandas as pd
 import streamlit as st
 
 from core.scrape_views import extract_ad_info
-from core.helpers import now_lt, write_excel
+from core.helpers import now_lt, write_excel, load_excel
 from core.scrape_views import (
     extract_ads,
     extract_ad_info
 )
+
+from openpyxl import load_workbook
+
+
+def sheet_exists(file, sheet_name):
+
+    if not file.exists():
+
+        return False
+
+    wb = load_workbook(file)
+
+    return sheet_name in wb.sheetnames
+
 def run_run_new_ads(file, url):
 
     try:
@@ -37,12 +51,14 @@ def run_run_new_ads(file, url):
         # Existing file
         # --------------------------------------
 
-        if file.exists():
+        # if file.exists():
+        if sheet_exists(file, "data"):
 
-            old_df = pd.read_excel(
-                file,
-                sheet_name="data"
-            )
+            # old_df = pd.read_excel(
+            #     file,
+            #     sheet_name="data"
+            # )
+            old_df = load_excel(file, "data")
 
             existing_links = (
 

@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from core.scrape_views import extract_ad_info
-from core.helpers import now_lt, write_excel
+from core.helpers import now_lt, write_excel,load_excel
 
 
 def run_rerun_ads(file, url):
@@ -23,11 +23,11 @@ def run_rerun_ads(file, url):
 
             st.stop()
 
-        old_df = pd.read_excel(
-            file,
-            sheet_name="data"
-        )
-
+        # old_df = pd.read_excel(
+        #     file,
+        #     sheet_name="data"
+        # )
+        old_df = load_excel(file, "data")
         latest_ads = (
             old_df
             .sort_values("scraped_at")
@@ -75,9 +75,12 @@ def run_rerun_ads(file, url):
         latest_ads["bookmarks"] = details_df["bookmarks"]
 
         latest_ads["scraped_at"] = now_lt()
-
+        excel_df = load_excel(
+            file, "data"
+        )
+        
         combined_df = pd.concat(
-            [old_df, latest_ads],
+            [excel_df, latest_ads],
             ignore_index=True
         )
 
