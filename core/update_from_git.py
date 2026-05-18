@@ -14,7 +14,7 @@ EXCLUDE = {
     ".venv"
 
 }
-def update_app():
+def update_app(file=None, url=None):
     if Path(".git").exists():
 
         st.warning(
