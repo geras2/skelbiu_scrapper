@@ -187,7 +187,7 @@ def extract_ad_info(link):
         # Return empty values if scraping fails
         return pd.Series({
 
-            "ad_id": None,
+            # "ad_id": None,
             "views": None,
             "bookmarks": None,
             "status": None

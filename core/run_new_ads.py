@@ -113,14 +113,15 @@ def run_run_new_ads(file, url):
                     details
                 )
 
-                new_df[
-                    [
-                        "ad_id",
-                        "views",
-                        "bookmarks"
-                    ]
-                ] = details_df
-
+                # new_df[
+                #     [
+                #         "ad_id",
+                #         "views",
+                #         "bookmarks"
+                #     ]
+                # ] = details_df
+                for col in details_df.columns:
+                    new_df[col] = details_df[col]
                 new_df["scraped_at"] = (
                     now_lt()
                 )
@@ -172,13 +173,8 @@ def run_run_new_ads(file, url):
                 details
             )
 
-            new_df[
-                [
-                    "ad_id",
-                    "views",
-                    "bookmarks"
-                ]
-            ] = details_df
+            for col in details_df.columns:
+                new_df[col] = details_df[col]
 
             new_df["scraped_at"] = (
                 now_lt()
