@@ -35,26 +35,7 @@ def run_track_discounts(
         file,
         "discounts_tracker"
     )
-    # -----------------------------------
-    # MIGRATE OLD FILES
-    # -----------------------------------
-
-    if "ad_id" not in excel_df.columns:
-
-        st.warning(
-            "Old file detected. "
-            "Generating ad_id from links..."
-        )
-
-        excel_df["ad_id"] = (
-
-            excel_df["link"]
-            .astype(str)
-            .str.extract(
-                r"-(\d+)\.html"
-            )[0]
-
-        )
+    
     # -----------------------------------
     # FIRST RUN
     # -----------------------------------
@@ -77,7 +58,26 @@ def run_track_discounts(
         st.dataframe(scraped_df)
 
         return
+# -----------------------------------
+    # MIGRATE OLD FILES
+    # -----------------------------------
 
+    if "ad_id" not in excel_df.columns:
+
+        st.warning(
+            "Old file detected. "
+            "Generating ad_id from links..."
+        )
+
+        excel_df["ad_id"] = (
+
+            excel_df["link"]
+            .astype(str)
+            .str.extract(
+                r"-(\d+)\.html"
+            )[0]
+
+        )
     # -----------------------------------
     # BACKWARD COMPATIBILITY
     # -----------------------------------

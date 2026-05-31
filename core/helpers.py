@@ -55,13 +55,10 @@ def write_excel(
 
     path = Path(file)
 
-    mode = "a" if path.exists() else "w"
-
     with pd.ExcelWriter(
         file,
         engine="openpyxl",
-        mode=mode,
-        if_sheet_exists="replace"
+        mode="w"
     ) as writer:
 
         new_df.to_excel(
