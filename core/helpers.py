@@ -83,7 +83,7 @@ def build_discount_urls(base_url):
 
     urls = []
 
-    for i in range(2, 7):
+    for i in range(2, 15):
 
         # CASE 1:
         # already has /2?

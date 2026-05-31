@@ -7,10 +7,7 @@ from core.ad_collection import (
 
 from core.helpers import (
     load_excel,
-    write_excel
-)
-
-from core.helpers import (
+    write_excel,
     build_discount_urls
 )
 
@@ -21,74 +18,264 @@ def run_track_discounts(
 ):
 
     # -----------------------------------
-    # BUILD PAGINATED URLS
+    # SCRAPE CURRENT ADS
     # -----------------------------------
 
     urls = build_discount_urls(url)
-
-    # -----------------------------------
-    # SCRAPE ADS
-    # -----------------------------------
 
     scraped_df = collect_ads_from_urls(
         urls
     )
 
     # -----------------------------------
-    # LOAD EXISTING DATA
+    # LOAD HISTORY
     # -----------------------------------
 
     excel_df = load_excel(
         file,
         "discounts_tracker"
     )
+    # -----------------------------------
+    # MIGRATE OLD FILES
+    # -----------------------------------
+
+    if "ad_id" not in excel_df.columns:
+
+        st.warning(
+            "Old file detected. "
+            "Generating ad_id from links..."
+        )
+
+        excel_df["ad_id"] = (
+
+            excel_df["link"]
+            .astype(str)
+            .str.extract(
+                r"-(\d+)\.html"
+            )[0]
+
+        )
+    # -----------------------------------
+    # FIRST RUN
+    # -----------------------------------
+
+    if len(excel_df) == 0:
+
+        scraped_df["status"] = "new"
+
+        write_excel(
+            scraped_df,
+            url,
+            file,
+            "discounts_tracker"
+        )
+
+        st.success(
+            f"Initial load: {len(scraped_df)} ads"
+        )
+
+        st.dataframe(scraped_df)
+
+        return
 
     # -----------------------------------
-    # COMPARE COLUMNS
-    # Ignore scraped_at
+    # BACKWARD COMPATIBILITY
     # -----------------------------------
+
+    if "status" not in excel_df.columns:
+
+        excel_df["status"] = None
+
+    # -----------------------------------
+    # LATEST SNAPSHOT PER AD
+    # -----------------------------------
+
+    latest_excel = (
+
+        excel_df
+        .sort_values("scraped_at")
+        .groupby("ad_id")
+        .tail(1)
+        .copy()
+
+    )
+
+    # -----------------------------------
+    # NEW ADS
+    # -----------------------------------
+
+    new_ads = scraped_df[
+
+        ~scraped_df["ad_id"].isin(
+            latest_excel["ad_id"]
+        )
+
+    ].copy()
+
+    new_ads["status"] = "new"
+
+    # -----------------------------------
+    # CHANGED ADS
+    # -----------------------------------
+
+    ignore_cols = [
+
+        "scraped_at",
+        "meta",
+        "status"
+
+    ]
 
     compare_cols = [
 
         col
+
         for col in scraped_df.columns
-        if col != "scraped_at"
+
+        if col not in ignore_cols
 
     ]
 
-    # -----------------------------------
-    # FIND NEW / CHANGED ROWS
-    # -----------------------------------
+    old_cmp = latest_excel[
+        compare_cols
+    ].copy()
 
-    if len(excel_df) > 0:
+    new_cmp = scraped_df[
+        compare_cols
+    ].copy()
 
-        new_rows = scraped_df.merge(
+    changed_ids = []
 
-            excel_df[compare_cols],
+    common_ids = set(
+        scraped_df["ad_id"]
+    ) & set(
+        latest_excel["ad_id"]
+    )
 
-            how="left",
+    for ad_id in common_ids:
 
-            indicator=True,
+        old_row = old_cmp[
+            old_cmp["ad_id"] == ad_id
+        ].iloc[0]
 
-            on=compare_cols
+        new_row = new_cmp[
+            new_cmp["ad_id"] == ad_id
+        ].iloc[0]
 
+        changed = False
+
+        for col in compare_cols:
+
+            if col == "ad_id":
+                continue
+
+            old_val = str(
+                old_row[col]
+            )
+
+            new_val = str(
+                new_row[col]
+            )
+
+            if old_val != new_val:
+
+                changed = True
+
+                break
+
+        if changed:
+
+            changed_ids.append(
+                ad_id
+            )
+
+    changed_ads = scraped_df[
+
+        scraped_df["ad_id"].isin(
+            changed_ids
         )
 
-        new_rows = new_rows[
-            new_rows["_merge"] == "left_only"
-        ].drop(columns="_merge")
+    ].copy()
 
-    else:
-
-        new_rows = scraped_df.copy()
+    changed_ads["status"] = (
+        "changed"
+    )
 
     # -----------------------------------
-    # APPEND NEW ROWS
+    # POSSIBLE SOLD
+    # -----------------------------------
+
+    current_ids = set(
+        scraped_df["ad_id"]
+    )
+
+    possible_sold = latest_excel[
+
+        (~latest_excel["ad_id"].isin(
+            current_ids
+        ))
+
+        &
+
+        (
+            latest_excel["status"]
+            .fillna("")
+            .ne("possible sold")
+        )
+
+    ].copy()
+
+    possible_sold["status"] = (
+        "possible sold"
+    )
+
+    possible_sold["scraped_at"] = (
+        pd.Timestamp.now()
+    )
+
+    # -----------------------------------
+    # COMBINE CHANGES
+    # -----------------------------------
+
+    changes_df = pd.concat(
+
+        [
+
+            new_ads,
+            changed_ads,
+            possible_sold
+
+        ],
+
+        ignore_index=True
+
+    )
+
+    # -----------------------------------
+    # NOTHING CHANGED
+    # -----------------------------------
+
+    if len(changes_df) == 0:
+
+        st.info(
+            "No changes detected"
+        )
+
+        return
+
+    # -----------------------------------
+    # APPEND TO HISTORY
     # -----------------------------------
 
     combined_df = pd.concat(
-        [excel_df, new_rows],
+
+        [
+            excel_df,
+            changes_df
+        ],
+
         ignore_index=True
+
     )
 
     # -----------------------------------
@@ -108,11 +295,19 @@ def run_track_discounts(
     )
 
     # -----------------------------------
-    # UI OUTPUT
+    # UI
     # -----------------------------------
 
     st.success(
-        f"New changes: {len(new_rows)}"
+        f"Changes detected: {len(changes_df)}"
     )
 
-    st.dataframe(new_rows)
+    st.write(
+        f"New: {len(new_ads)} | "
+        f"Changed: {len(changed_ads)} | "
+        f"Possible sold: {len(possible_sold)}"
+    )
+
+    st.dataframe(
+        changes_df
+    )

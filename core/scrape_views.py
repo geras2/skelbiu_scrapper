@@ -13,6 +13,7 @@ import cloudscraper
 import pandas as pd
 import requests
 
+import re
 from bs4 import BeautifulSoup
 
 # ---------------------------------------------------------
@@ -64,7 +65,13 @@ def parse_number(s):
 #       views
 #       bookmarks
 # ---------------------------------------------------------
+def extract_html(link):
 
+    scraper = cloudscraper.create_scraper()
+
+    r = scraper.get(link)
+    return r
+    
 def extract_ad_info(link):
 
     try:
@@ -72,10 +79,10 @@ def extract_ad_info(link):
         # ---------------------------------------------
         # Request ad page
         # ---------------------------------------------
-
+        
         r = scraper.get(link, timeout=30)
+        # r = extract_html(link)
 
-        print(r.status_code)
 
         # Parse HTML
         soup = BeautifulSoup(r.text, "html.parser")
@@ -102,19 +109,51 @@ def extract_ad_info(link):
         #     <span>1K</span>
         # </div>
         # ---------------------------------------------
+        # print(soup.select_one("div.block.showed"))
+        # print(link)
+        # print(r.status_code)
 
-        views_el = soup.select_one(
-            "div.block.showed span"
+
+        views_div = soup.select_one(
+            "div.block.showed"
         )
 
         views = None
 
-        if views_el:
+        if views_div:
 
-            views = parse_number(
-                views_el.get_text(strip=True)
+            title = views_div.get("title", "")
+
+            match = re.search(
+                r"Skaitytas:\s*([\dK\.]+)",
+                title
             )
 
+            if match:
+
+                views = parse_number(
+                    match.group(1)
+                )
+                # ---------------------------------------------
+        # Ad status
+        #
+        # Example:
+        # <div class="info-description">
+        #     Skelbimas pašalintas.
+        # </div>
+        # ---------------------------------------------
+
+        status_el = soup.select_one(
+            "div.info-description"
+        )
+
+        status = None
+
+        if status_el:
+
+            status = status_el.get_text(
+                strip=True
+            )
         # ---------------------------------------------
         # Extract bookmarks
         #
@@ -137,8 +176,8 @@ def extract_ad_info(link):
 
             "ad_id": ad_id,
             "views": views,
-            "bookmarks": bookmarks
-
+            "bookmarks": bookmarks,
+            "status": status
         })
 
     except Exception as e:
@@ -150,8 +189,8 @@ def extract_ad_info(link):
 
             "ad_id": None,
             "views": None,
-            "bookmarks": None
-
+            "bookmarks": None,
+            "status": None
         })
 
 
@@ -170,93 +209,165 @@ def extract_ad_info(link):
 #       scraped_at
 # ---------------------------------------------------------
 
+def extract_ad_id(link):
+    """
+    Extract ad ID from Skelbiu URL.
+
+    Example:
+    https://www.skelbiu.lt/skelbimai/...-84990032.html
+
+    returns:
+    84990032
+    """
+
+    match = re.search(
+        r"-(\d+)\.html",
+        link
+    )
+
+    return (
+        match.group(1)
+        if match
+        else None
+    )
+    
 def extract_ads(link):
 
     # ---------------------------------------------
     # Browser-like headers
-    #
-    # Helps reduce blocking from Skelbiu
     # ---------------------------------------------
 
     headers = {
-
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/124.0.0.0 Safari/537.36"
         )
-
     }
 
-    # Request search page
-    r = requests.get(link, headers=headers)
+    # ---------------------------------------------
+    # Request page
+    # ---------------------------------------------
 
-    # Raise error if request failed
+    r = requests.get(
+        link,
+        headers=headers
+    )
+
     r.raise_for_status()
 
-    # Parse HTML
-    soup = BeautifulSoup(r.text, "html.parser")
+    soup = BeautifulSoup(
+        r.text,
+        "html.parser"
+    )
 
-    # Storage for extracted ads
+    # ---------------------------------------------
+    # Collect ads
+    # ---------------------------------------------
+
     items = []
 
-    # ---------------------------------------------
-    # Find all ad links
-    # ---------------------------------------------
+    ads = soup.select(
+        "a[href*='/skelbimai/']"
+    )
 
-    ads = soup.select("a[href*='/skelbimai/']")
-
-    # Used to avoid duplicates
     seen = set()
 
     # ---------------------------------------------
-    # Iterate through ads
+    # Process ads
     # ---------------------------------------------
 
     for ad in ads:
 
         href = ad.get("href")
 
-        # Skip duplicates / invalid links
-        if not href or href in seen:
+        if not href:
             continue
 
-        # Extract ad components
-        title_el = ad.select_one("div.title")
-        price_el = ad.select_one("div.price")
-        meta_el = ad.select_one("div.second-dataline")
+        full_link = (
 
-        # Skip incomplete elements
+            href
+
+            if href.startswith("http")
+
+            else f"https://www.skelbiu.lt{href}"
+
+        )
+
+        # Skip duplicates
+        if full_link in seen:
+            continue
+
+        seen.add(full_link)
+
+        title_el = ad.select_one(
+            "div.title"
+        )
+
+        price_el = ad.select_one(
+            "div.price"
+        )
+
+        meta_el = ad.select_one(
+            "div.second-dataline"
+        )
+
         if not title_el:
             continue
 
-        seen.add(href)
+        # -----------------------------------------
+        # Extract ad ID from URL
+        # -----------------------------------------
 
-        # Store extracted data
+        match = re.search(
+            r"-(\d+)\.html",
+            full_link
+        )
+
+        ad_id = (
+
+            str(match.group(1))
+
+            if match
+
+            else None
+
+        )
+
+        # -----------------------------------------
+        # Store result
+        # -----------------------------------------
+
         items.append({
 
-            "title": title_el.get_text(strip=True),
+            "ad_id": ad_id,
+
+            "title": title_el.get_text(
+                strip=True
+            ),
 
             "price": (
-                price_el.get_text(" ", strip=True)
-                if price_el else None
+                price_el.get_text(
+                    " ",
+                    strip=True
+                )
+                if price_el
+                else None
             ),
 
             "meta": (
-                meta_el.get_text(" ", strip=True)
-                if meta_el else None
+                meta_el.get_text(
+                    " ",
+                    strip=True
+                )
+                if meta_el
+                else None
             ),
 
-            "link": (
-                href if href.startswith("http")
-                else f"https://www.skelbiu.lt{href}"
-            ),
+            "link": full_link,
 
             "scraped_at": datetime.now()
 
         })
 
-    # Convert results into DataFrame
-    df = pd.DataFrame(items)
-
-    return df
+    return pd.DataFrame(items)

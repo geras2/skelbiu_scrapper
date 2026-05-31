@@ -23,10 +23,6 @@ def run_rerun_ads(file, url):
 
             st.stop()
 
-        # old_df = pd.read_excel(
-        #     file,
-        #     sheet_name="data"
-        # )
         old_df = load_excel(file, "data")
         latest_ads = (
             old_df
@@ -53,7 +49,7 @@ def run_rerun_ads(file, url):
             )
 
             time.sleep(
-                random.uniform(1, 2)
+                random.uniform(2, 4)
             )
 
             progress.progress(
@@ -73,6 +69,7 @@ def run_rerun_ads(file, url):
         latest_ads["ad_id"] = details_df["ad_id"]
         latest_ads["views"] = details_df["views"]
         latest_ads["bookmarks"] = details_df["bookmarks"]
+        latest_ads["status"] = details_df["status"]
 
         latest_ads["scraped_at"] = now_lt()
         excel_df = load_excel(
