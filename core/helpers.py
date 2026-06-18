@@ -55,25 +55,31 @@ def write_excel(
 
     path = Path(file)
 
+    if path.exists():
+        mode = "a"
+    else:
+        mode = "w"
+
     with pd.ExcelWriter(
-        file,
-        engine="openpyxl",
-        mode="w"
-    ) as writer:
+            file,
+            engine="openpyxl",
+            mode=mode,
+            if_sheet_exists="replace" if mode == "a" else None
+        ) as writer:
 
         new_df.to_excel(
-            writer,
-            sheet_name=data_sheet,
-            index=False
-        )
-        if url:
-            pd.DataFrame({
-                "url": [url]
-            }).to_excel(
                 writer,
-                sheet_name=f"url",
+                sheet_name=data_sheet,
                 index=False
             )
+        if url:
+                pd.DataFrame({
+                    "url": [url]
+                }).to_excel(
+                    writer,
+                    sheet_name=f"url",
+                    index=False
+                )
 
 
 def build_discount_urls(base_url):
@@ -102,5 +108,5 @@ def build_discount_urls(base_url):
             )
 
         urls.append(new_url)
-
+        # print(urls)
     return urls
