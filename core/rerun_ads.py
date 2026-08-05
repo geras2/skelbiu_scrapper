@@ -5,15 +5,50 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from core.scrape_views import extract_ad_info
+from core.scrape_views import extract_ad_info, extract_ad_id
 from core.helpers import now_lt, write_excel,load_excel
 
+
+
+def repair_missing_ad_ids(file, url):
+
+    df = load_excel(file, "data")
+
+    # Missing IDs
+    # mask = df["ad_id"].isna()
+    mask = (
+    df["ad_id"].isna()
+    | (df["ad_id"].astype(str).str.strip() == "")
+    )
+
+    repaired = mask.sum()
+
+    if repaired == 0:
+        st.info("No missing ad_ids found.")
+        return
+
+    df.loc[mask, "ad_id"] = (
+        df.loc[mask, "link"]
+        .apply(extract_ad_id)
+    )
+
+    write_excel(
+        df,
+        url,
+        file
+    )
+
+    st.success(
+        f"Repaired {repaired} missing ad_ids."
+    )
+
+    st.dataframe(df.loc[mask])
 
 def run_rerun_ads(file, url):
 
     try:
-
         path = Path(file)
+        repair_missing_ad_ids(file, url)
 
         if not path.exists():
 

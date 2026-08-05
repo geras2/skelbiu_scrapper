@@ -65,25 +65,6 @@ def update_app(file=None, url=None):
     # Files to update
     # ----------------------------------------
 
-    # files_to_copy = [
-
-    #     "scrape_views.py",
-    #     "requirements.txt",
-    #     "install.bat",
-    #     "start.bat",
-    #     "update_from_git.py"
-
-    # ]
-
-    # for filename in files_to_copy:
-
-    #     src = source_dir / filename
-
-    #     dst = Path(filename)
-
-    #     if src.exists():
-
-    #         shutil.copy2(src, dst)
     for src in source_dir.rglob("*"):
 
         relative = src.relative_to(source_dir)

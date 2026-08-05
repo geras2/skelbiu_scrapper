@@ -1,17 +1,12 @@
 # app.py
 
 import streamlit as st
-import pandas as pd
-from pathlib import Path
-import time
-import random
-from pathlib import Path
+
+import truststore
+truststore.inject_into_ssl() #storing certificates for use
+
 from core.update_from_git import update_app
-# from core.scrape_views import (
-#     extract_ads,
-#     extract_ad_info
-# )
-from core.helpers import (write_excel,build_discount_urls, load_excel)
+# from core.helpers import (write_excel,build_discount_urls, load_excel)
 from core.rerun_ads import run_rerun_ads
 from core.run_new_ads import run_run_new_ads
 from core.file_selector import render_file_selector
@@ -19,9 +14,6 @@ from core.track_discounts import (
     run_track_discounts
 )
 
-from core.ad_collection import (
-    collect_ads_from_urls
-)
 def main():
     # ---------------------------------------------------
     # CONFIG

@@ -1,7 +1,8 @@
-streamlit
-pandas
-openpyxl
-beautifulsoup4
-requests
-cloudscraper
-lxml
+streamlit>=1.49,<2.0
+pandas>=2.2,<3.0
+requests>=2.32,<3.0
+cloudscraper>=1.2
+beautifulsoup4>=4.13
+openpyxl>=3.1
+lxml>=6.0
+truststore>=0.10

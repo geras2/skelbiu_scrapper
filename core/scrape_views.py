@@ -3,28 +3,20 @@
 # ---------------------------------------------------------
 
 import re
+import time
 from datetime import datetime
+import random
 
 # ---------------------------------------------------------
 # Third-party imports
 # ---------------------------------------------------------
 
-import cloudscraper
 import pandas as pd
 import requests
 
-import re
 from bs4 import BeautifulSoup
 
-# ---------------------------------------------------------
-# Create shared scraper session
-#
-# cloudscraper helps bypass basic anti-bot protection
-# and Cloudflare challenges.
-# ---------------------------------------------------------
-
-scraper = cloudscraper.create_scraper()
-
+from core.session import get_scraper
 
 # ---------------------------------------------------------
 # Helper function:
@@ -65,115 +57,97 @@ def parse_number(s):
 #       views
 #       bookmarks
 # ---------------------------------------------------------
-def extract_html(link):
 
-    scraper = cloudscraper.create_scraper()
 
-    r = scraper.get(link)
-    return r
-    
+# ---------------------------------------------------------
+# Download complete HTML
+# ---------------------------------------------------------
+def extract_html(link, retries=5):
+    scraper = get_scraper()
+    for attempt in range(retries):
+
+        try:
+            r = scraper.get(link, timeout=30)
+
+            r.raise_for_status()
+
+            soup = BeautifulSoup(r.text, "html.parser")
+
+            if soup.select_one("div.block.id"):
+                return r
+
+        except Exception as e:
+            print(e)
+
+        time.sleep(random.uniform(2, 5))
+
+    raise RuntimeError(f"Failed to load {link}")
+
 def extract_ad_info(link):
+    """
+    Extract information from a Skelbiu ad page.
+
+    Returns:
+        pd.Series:
+            ad_id
+            views
+            bookmarks
+            status
+    """
 
     try:
-
-        # ---------------------------------------------
-        # Request ad page
-        # ---------------------------------------------
-        
-        r = scraper.get(link, timeout=30)
-        # r = extract_html(link)
+        # r = scraper.get(link, timeout=30)
+        r = extract_html(link)
 
 
-        # Parse HTML
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Extract full text content
-        text = soup.get_text(" ", strip=True)
+        # -------------------------------
+        # Ad ID
+        # -------------------------------
+        ad_id = None
 
-        # ---------------------------------------------
-        # Extract ad ID
-        #
-        # Example:
-        # "ID: 71466308"
-        # ---------------------------------------------
+        id_el = soup.select_one("div.block.id")
+        if id_el:
+            match = re.search(r"\d+", id_el.get_text())
+            if match:
+                ad_id = match.group()
 
-        id_match = re.search(r"ID:\s*(\d+)", text)
-
-        ad_id = id_match.group(1) if id_match else None
-
-        # ---------------------------------------------
-        # Extract views
-        #
-        # HTML example:
-        # <div class="block showed">
-        #     <span>1K</span>
-        # </div>
-        # ---------------------------------------------
-        # print(soup.select_one("div.block.showed"))
-        # print(link)
-        # print(r.status_code)
-
-
-        views_div = soup.select_one(
-            "div.block.showed"
-        )
-
+        # -------------------------------
+        # Views
+        # -------------------------------
         views = None
 
-        if views_div:
-
-            title = views_div.get("title", "")
-
-            match = re.search(
-                r"Skaitytas:\s*([\dK\.]+)",
-                title
+        views_el = soup.select_one("div.block.showed span")
+        if views_el:
+            views = parse_number(
+                views_el.get_text(strip=True)
             )
 
-            if match:
+        # -------------------------------
+        # Bookmarks
+        # -------------------------------
+        bookmarks = None
 
-                views = parse_number(
-                    match.group(1)
-                )
-                # ---------------------------------------------
-        # Ad status
-        #
-        # Example:
-        # <div class="info-description">
-        #     Skelbimas pašalintas.
-        # </div>
-        # ---------------------------------------------
+        bookmarks_el = soup.select_one("div.block.bookmarks span")
+        if bookmarks_el:
+            bookmarks = parse_number(
+                bookmarks_el.get_text(strip=True)
+            )
 
-        status_el = soup.select_one(
-            "div.info-description"
-        )
-
+        # -------------------------------
+        # Status
+        # -------------------------------
         status = None
 
+        status_el = soup.select_one("div.info-description")
         if status_el:
-
             status = status_el.get_text(
+                " ",
                 strip=True
             )
-        # ---------------------------------------------
-        # Extract bookmarks
-        #
-        # Example text:
-        # "Įsimintas 21"
-        # ---------------------------------------------
 
-        bookmarks_match = re.search(
-            r"Įsimintas\s+(\d+)",
-            text
-        )
-
-        bookmarks = (
-            int(bookmarks_match.group(1))
-            if bookmarks_match else None
-        )
-
-        # Return extracted data
         return pd.Series({
-
             "ad_id": ad_id,
             "views": views,
             "bookmarks": bookmarks,
@@ -181,18 +155,14 @@ def extract_ad_info(link):
         })
 
     except Exception as e:
+        print(f"{link} -> {e}")
 
-        print(e)
-
-        # Return empty values if scraping fails
         return pd.Series({
-
-            # "ad_id": None,
+            "ad_id": None,
             "views": None,
             "bookmarks": None,
             "status": None
         })
-
 
 # ---------------------------------------------------------
 # Extract ads from Skelbiu search results page
@@ -210,26 +180,13 @@ def extract_ad_info(link):
 # ---------------------------------------------------------
 
 def extract_ad_id(link):
-    """
-    Extract ad ID from Skelbiu URL.
+    match = re.search(r'(\d+)(?=\.html$)', link)
+    # return match.group(1) if match else None
+    return int(match.group(1)) if match else None
 
-    Example:
-    https://www.skelbiu.lt/skelbimai/...-84990032.html
+# print(extract_ad_id("https://www.skelbiu.lt/skelbimai/grazus-vaikiskas-dvyratukas-86176334.html"))
+# # 86176334
 
-    returns:
-    84990032
-    """
-
-    match = re.search(
-        r"-(\d+)\.html",
-        link
-    )
-
-    return (
-        match.group(1)
-        if match
-        else None
-    )
     
 def extract_ads(link):
 
